@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /build
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 RUN npm run build -- --configuration=production
