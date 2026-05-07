@@ -63,7 +63,7 @@ interface Column {
                     </span>
                   }
                   @if (task.assigneeUsername) {
-                    <span class="assignee">@{{ task.assigneeUsername }}</span>
+                    <span class="assignee">{{ '@' + task.assigneeUsername }}</span>
                   }
                   <button mat-icon-button (click)="openHistory(task, $event)"
                           matTooltip="Historique">
