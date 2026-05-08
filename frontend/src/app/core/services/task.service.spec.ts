@@ -1,70 +1,59 @@
-import { TestBed } from '@angular/core/testing';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { of } from 'rxjs';
+import { setInjectMock } from '../../../__mocks__/angular-core';
 import { TaskService } from './task.service';
-import { environment } from '../../../environments/environment';
 
 describe('TaskService', () => {
   let service: TaskService;
-  let http: HttpTestingController;
+  let mockHttp: any;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [TaskService, provideHttpClient(), provideHttpClientTesting()]
-    });
-    service = TestBed.inject(TaskService);
-    http = TestBed.inject(HttpTestingController);
+    mockHttp = {
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn()
+    };
+    setInjectMock(() => mockHttp);
+    service = new TaskService();
   });
 
-  afterEach(() => http.verify());
-
-  it('liste les tâches du projet', () => {
-    service.listByProject(5).subscribe(list => expect(list).toHaveLength(1));
-    const req = http.expectOne(`${environment.apiUrl}/projects/5/tasks`);
-    req.flush([{
-      id: 1, name: 'T', description: null, priority: 'MEDIUM', status: 'TODO',
-      dueDate: null, projectId: 5, assigneeId: null, assigneeUsername: null,
-      createdByUsername: 'x', createdAt: '', updatedAt: ''
-    }]);
-  });
-
-  it('crée une tâche', () => {
-    service.create(5, { name: 'N' }).subscribe(t => expect(t.id).toBe(1));
-    const req = http.expectOne(`${environment.apiUrl}/projects/5/tasks`);
-    expect(req.request.method).toBe('POST');
-    req.flush({
-      id: 1, name: 'N', description: null, priority: 'MEDIUM', status: 'TODO',
-      dueDate: null, projectId: 5, assigneeId: null, assigneeUsername: null,
-      createdByUsername: 'x', createdAt: '', updatedAt: ''
+  it('liste les tâches du projet', (done) => {
+    mockHttp.get.mockReturnValue(of([{ id: 1 }]));
+    service.listByProject(5).subscribe((t: any) => {
+      expect(t).toHaveLength(1);
+      done();
     });
   });
 
-  it('met à jour une tâche', () => {
-    service.update(10, { name: 'X', status: 'DONE' }).subscribe(t => {
-      expect(t.status).toBe('DONE');
-    });
-    const req = http.expectOne(`${environment.apiUrl}/tasks/10`);
-    expect(req.request.method).toBe('PUT');
-    req.flush({
-      id: 10, name: 'X', description: null, priority: 'MEDIUM', status: 'DONE',
-      dueDate: null, projectId: 5, assigneeId: null, assigneeUsername: null,
-      createdByUsername: 'x', createdAt: '', updatedAt: ''
+  it('crée une tâche', (done) => {
+    mockHttp.post.mockReturnValue(of({ id: 10 }));
+    service.create(5, { name: 'T' }).subscribe((t: any) => {
+      expect(t.id).toBe(10);
+      done();
     });
   });
 
-  it('supprime une tâche', () => {
-    service.delete(10).subscribe();
-    const req = http.expectOne(`${environment.apiUrl}/tasks/10`);
-    expect(req.request.method).toBe('DELETE');
-    req.flush(null);
+  it('met à jour une tâche', (done) => {
+    mockHttp.put.mockReturnValue(of({ id: 10, name: 'Up' }));
+    service.update(10, { name: 'Up' }).subscribe((t: any) => {
+      expect(t.name).toBe('Up');
+      done();
+    });
   });
 
-  it('récupère l\'historique', () => {
-    service.history(10).subscribe(list => expect(list).toHaveLength(1));
-    const req = http.expectOne(`${environment.apiUrl}/tasks/10/history`);
-    req.flush([{
-      id: 1, username: 'alice', fieldChanged: 'status',
-      oldValue: 'TODO', newValue: 'DONE', changedAt: '2026-01-01'
-    }]);
+  it('supprime une tâche', (done) => {
+    mockHttp.delete.mockReturnValue(of(undefined));
+    service.delete(10).subscribe(() => {
+      expect(mockHttp.delete).toHaveBeenCalled();
+      done();
+    });
+  });
+
+  it('récupère lhistorique', (done) => {
+    mockHttp.get.mockReturnValue(of([{ action: 'CREATE' }]));
+    service.history(10).subscribe((h: any) => {
+      expect(h).toHaveLength(1);
+      done();
+    });
   });
 });

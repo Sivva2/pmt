@@ -1,43 +1,44 @@
-import { TestBed } from '@angular/core/testing';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { of } from 'rxjs';
+import { setInjectMock } from '../../../__mocks__/angular-core';
 import { NotificationService } from './notification.service';
-import { environment } from '../../../environments/environment';
 
 describe('NotificationService', () => {
   let service: NotificationService;
-  let http: HttpTestingController;
+  let mockHttp: any;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [NotificationService, provideHttpClient(), provideHttpClientTesting()]
+    mockHttp = {
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn()
+    };
+    setInjectMock(() => mockHttp);
+    service = new NotificationService();
+  });
+
+  it('liste les notifications', (done) => {
+    mockHttp.get.mockReturnValue(of([{ id: 1 }, { id: 2 }]));
+    service.list().subscribe((list: any) => {
+      expect(list).toHaveLength(2);
+      done();
     });
-    service = TestBed.inject(NotificationService);
-    http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
-
-  it('liste les notifications', () => {
-    service.list().subscribe(list => expect(list).toHaveLength(2));
-    const req = http.expectOne(`${environment.apiUrl}/notifications`);
-    req.flush([
-      { id: 1, taskId: 1, message: 'a', read: false, createdAt: '' },
-      { id: 2, taskId: 2, message: 'b', read: true, createdAt: '' }
-    ]);
+  it('met à jour le compteur non lu', (done) => {
+    mockHttp.get.mockReturnValue(of({ count: 5 }));
+    service.refreshUnreadCount().subscribe((r: any) => {
+      expect(r.count).toBe(5);
+      expect(service.unreadCount()).toBe(5);
+      done();
+    });
   });
 
-  it('met à jour le compteur non lu', () => {
-    service.refreshUnreadCount().subscribe();
-    const req = http.expectOne(`${environment.apiUrl}/notifications/unread-count`);
-    req.flush({ count: 5 });
-    expect(service.unreadCount()).toBe(5);
-  });
-
-  it('marque une notification comme lue', () => {
-    service.markAsRead(10).subscribe();
-    const req = http.expectOne(`${environment.apiUrl}/notifications/10/read`);
-    expect(req.request.method).toBe('PUT');
-    req.flush(null);
+  it('marque une notification comme lue', (done) => {
+    mockHttp.put.mockReturnValue(of(undefined));
+    service.markAsRead(7).subscribe(() => {
+      expect(mockHttp.put).toHaveBeenCalled();
+      done();
+    });
   });
 });

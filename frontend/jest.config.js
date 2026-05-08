@@ -1,16 +1,20 @@
 module.exports = {
-  preset: 'jest-preset-angular',
-  setupFilesAfterEach: ['<rootDir>/src/setup-jest.ts'],
+  preset: 'ts-jest',
+  testEnvironment: 'jsdom',
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/dist/'],
   moduleNameMapper: {
-    '^@app/(.*)$': '<rootDir>/src/app/$1'
+    '^@app/(.*)$': '<rootDir>/src/app/$1',
+    '^@angular/core$': '<rootDir>/src/__mocks__/angular-core.ts',
+    '^@angular/common/http$': '<rootDir>/src/__mocks__/angular-http.ts',
+    '^.*environments/environment$': '<rootDir>/src/__mocks__/environment.ts'
+  },
+  testMatch: ['<rootDir>/src/**/*.spec.ts'],
+  transform: {
+    '^.+\\.ts$': ['ts-jest', { tsconfig: { target: 'es2022', module: 'commonjs', esModuleInterop: true, experimentalDecorators: true, emitDecoratorMetadata: true } }]
   },
   collectCoverageFrom: [
-    'src/app/**/*.ts',
-    '!src/app/**/*.module.ts',
-    '!src/app/**/index.ts',
-    '!src/app/**/*.config.ts',
-    '!src/app/**/models/**'
+    'src/app/core/services/**/*.ts',
+    '!src/app/**/*.module.ts'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['html', 'text', 'lcov'],

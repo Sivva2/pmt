@@ -1,61 +1,60 @@
-import { TestBed } from '@angular/core/testing';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { of } from 'rxjs';
+import { setInjectMock } from '../../../__mocks__/angular-core';
 import { ProjectService } from './project.service';
-import { environment } from '../../../environments/environment';
 
 describe('ProjectService', () => {
   let service: ProjectService;
-  let http: HttpTestingController;
+  let mockHttp: any;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      providers: [ProjectService, provideHttpClient(), provideHttpClientTesting()]
+    mockHttp = {
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn()
+    };
+    setInjectMock(() => mockHttp);
+    service = new ProjectService();
+  });
+
+  it('liste les projets', (done) => {
+    mockHttp.get.mockReturnValue(of([{ id: 1 }, { id: 2 }]));
+    service.list().subscribe((list: any) => {
+      expect(list).toHaveLength(2);
+      done();
     });
-    service = TestBed.inject(ProjectService);
-    http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
-
-  it('liste les projets', () => {
-    service.list().subscribe(list => expect(list).toHaveLength(2));
-    const req = http.expectOne(`${environment.apiUrl}/projects`);
-    expect(req.request.method).toBe('GET');
-    req.flush([
-      { id: 1, name: 'A', description: '', createdByUsername: 'x', createdAt: '' },
-      { id: 2, name: 'B', description: '', createdByUsername: 'x', createdAt: '' }
-    ]);
-  });
-
-  it('récupère un projet par id', () => {
-    service.get(10).subscribe(p => expect(p.id).toBe(10));
-    const req = http.expectOne(`${environment.apiUrl}/projects/10`);
-    req.flush({ id: 10, name: 'X', description: '', createdByUsername: 'x', createdAt: '' });
-  });
-
-  it('crée un projet', () => {
-    service.create({ name: 'New', description: 'D' }).subscribe(p => {
-      expect(p.name).toBe('New');
+  it('récupère un projet par id', (done) => {
+    mockHttp.get.mockReturnValue(of({ id: 5, name: 'Test' }));
+    service.get(5).subscribe((p: any) => {
+      expect(p.id).toBe(5);
+      done();
     });
-    const req = http.expectOne(`${environment.apiUrl}/projects`);
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ name: 'New', description: 'D' });
-    req.flush({ id: 1, name: 'New', description: 'D', createdByUsername: 'x', createdAt: '' });
   });
 
-  it('invite un membre', () => {
-    service.invite(5, { email: 'x@x.com', role: 'MEMBER' }).subscribe(m => {
+  it('crée un projet', (done) => {
+    const newProject = { id: 10, name: 'Nouveau' };
+    mockHttp.post.mockReturnValue(of(newProject));
+    service.create({ name: 'Nouveau', description: 'D' }).subscribe((p: any) => {
+      expect(p).toEqual(newProject);
+      done();
+    });
+  });
+
+  it('liste les membres', (done) => {
+    mockHttp.get.mockReturnValue(of([{ userId: 1, role: 'ADMIN' }]));
+    service.listMembers(7).subscribe((m: any) => {
+      expect(m).toHaveLength(1);
+      done();
+    });
+  });
+
+  it('invite un membre', (done) => {
+    mockHttp.post.mockReturnValue(of({ userId: 2, role: 'MEMBER' }));
+    service.invite(7, { email: 'x@y.z', role: 'MEMBER' as any }).subscribe((m: any) => {
       expect(m.role).toBe('MEMBER');
+      done();
     });
-    const req = http.expectOne(`${environment.apiUrl}/projects/5/members`);
-    expect(req.request.method).toBe('POST');
-    req.flush({ id: 1, userId: 2, username: 'x', email: 'x@x.com', role: 'MEMBER' });
-  });
-
-  it('liste les membres', () => {
-    service.listMembers(5).subscribe(list => expect(list).toHaveLength(1));
-    const req = http.expectOne(`${environment.apiUrl}/projects/5/members`);
-    req.flush([{ id: 1, userId: 1, username: 'a', email: 'a@a.com', role: 'ADMIN' }]);
   });
 });

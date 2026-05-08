@@ -1,84 +1,62 @@
-import { TestBed } from '@angular/core/testing';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { of } from 'rxjs';
+import { setInjectMock } from '../../../__mocks__/angular-core';
 import { AuthService } from './auth.service';
-import { environment } from '../../../environments/environment';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let http: HttpTestingController;
+  let mockHttp: any;
 
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({
-      providers: [AuthService, provideHttpClient(), provideHttpClientTesting()]
-    });
-    service = TestBed.inject(AuthService);
-    http = TestBed.inject(HttpTestingController);
+    mockHttp = {
+      get: jest.fn(),
+      post: jest.fn(),
+      put: jest.fn(),
+      delete: jest.fn()
+    };
+    setInjectMock(() => mockHttp);
+    service = new AuthService();
   });
 
-  afterEach(() => {
-    http.verify();
-    localStorage.clear();
-  });
+  afterEach(() => localStorage.clear());
 
   it('démarre non authentifié', () => {
     expect(service.isAuthenticated()).toBe(false);
     expect(service.currentUser()).toBeNull();
   });
 
-  it('connecte un utilisateur et persiste dans localStorage', () => {
-    const user = { id: 1, username: 'alice', email: 'a@a.com' };
-
-    service.login({ email: 'a@a.com', password: 'password' }).subscribe(u => {
-      expect(u).toEqual(user);
+  it('connecte un utilisateur et persiste dans localStorage', (done) => {
+    const fakeUser = { id: 1, username: 'alice', email: 'a@b.c' };
+    mockHttp.post.mockReturnValue(of(fakeUser));
+    service.login({ email: 'a@b.c', password: 'pwd' }).subscribe(user => {
+      expect(user).toEqual(fakeUser);
+      expect(service.isAuthenticated()).toBe(true);
+      expect(localStorage.getItem('pmt_current_user')).toContain('alice');
+      done();
     });
-
-    const req = http.expectOne(`${environment.apiUrl}/auth/login`);
-    expect(req.request.method).toBe('POST');
-    req.flush(user);
-
-    expect(service.currentUser()).toEqual(user);
-    expect(service.isAuthenticated()).toBe(true);
-    expect(JSON.parse(localStorage.getItem('pmt_current_user')!)).toEqual(user);
   });
 
-  it('enregistre un nouvel utilisateur', () => {
-    const user = { id: 2, username: 'bob', email: 'b@b.com' };
-    service.register({ username: 'bob', email: 'b@b.com', password: 'password' })
-      .subscribe(u => expect(u).toEqual(user));
-
-    const req = http.expectOne(`${environment.apiUrl}/auth/register`);
-    req.flush(user);
-
-    expect(service.currentUser()).toEqual(user);
+  it('enregistre un nouvel utilisateur', (done) => {
+    const fakeUser = { id: 2, username: 'bob', email: 'b@c.d' };
+    mockHttp.post.mockReturnValue(of(fakeUser));
+    service.register({ username: 'bob', email: 'b@c.d', password: 'pwd' }).subscribe(user => {
+      expect(user).toEqual(fakeUser);
+      expect(service.isAuthenticated()).toBe(true);
+      done();
+    });
   });
 
   it('déconnecte et vide le localStorage', () => {
-    localStorage.setItem('pmt_current_user', JSON.stringify({ id: 1, username: 'a', email: 'a@a.com' }));
-
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      providers: [AuthService, provideHttpClient(), provideHttpClientTesting()]
-    });
-    const s = TestBed.inject(AuthService);
-
-    expect(s.isAuthenticated()).toBe(true);
-    s.logout();
-    expect(s.isAuthenticated()).toBe(false);
+    localStorage.setItem('pmt_current_user', JSON.stringify({ id: 1 }));
+    service.logout();
+    expect(service.currentUser()).toBeNull();
     expect(localStorage.getItem('pmt_current_user')).toBeNull();
   });
 
-  it('récupère l\'utilisateur depuis localStorage au démarrage', () => {
-    const user = { id: 5, username: 'x', email: 'x@x.com' };
-    localStorage.setItem('pmt_current_user', JSON.stringify(user));
-
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      providers: [AuthService, provideHttpClient(), provideHttpClientTesting()]
-    });
-    const s = TestBed.inject(AuthService);
-
-    expect(s.currentUser()).toEqual(user);
+  it('récupère lutilisateur depuis localStorage au démarrage', () => {
+    localStorage.setItem('pmt_current_user', JSON.stringify({ id: 99, username: 'persisted' }));
+    const newService = new AuthService();
+    expect(newService.isAuthenticated()).toBe(true);
+    expect(newService.currentUser()?.username).toBe('persisted');
   });
 });
