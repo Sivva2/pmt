@@ -1,346 +1,231 @@
 # PMT — Project Management Tool
 
-[![CI/CD](https://github.com/Sivva2/pmt/actions/workflows/ci.yml/badge.svg)](https://github.com/Sivva2/pmt/actions/workflows/ci.yml)
+Application full-stack de gestion de projets collaborative, développée dans le cadre de l'étude de cas du bloc RNCP Niveau 7 "Intégration, industrialisation et déploiement de logiciel" — Groupe ESIEA INTECH / Visiplus.
 
-Plateforme de gestion de projet collaboratif destinée aux équipes de développement logiciel. Permet de planifier, suivre et collaborer sur des projets avec gestion fine des rôles, tableau Kanban, historique et notifications.
+## Sommaire
 
----
+- [Stack technique](#stack-technique)
+- [Architecture](#architecture)
+- [Démarrage rapide avec Docker](#démarrage-rapide-avec-docker)
+- [Installation pour le développement](#installation-pour-le-développement)
+- [Tests et couverture](#tests-et-couverture)
+- [Pipeline CI/CD](#pipeline-cicd)
+- [Images Docker Hub](#images-docker-hub)
+- [Structure du projet](#structure-du-projet)
 
-## 📚 Table des matières
+## Stack technique
 
-- [Stack technique](#-stack-technique)
-- [Architecture](#%EF%B8%8F-architecture)
-- [Fonctionnalités](#-fonctionnalités)
-- [Démarrage rapide (Docker)](#-démarrage-rapide-docker)
-- [Développement local](#-développement-local)
-- [Tests & Couverture](#-tests--couverture)
-- [Pipeline CI/CD](#-pipeline-cicd)
-- [Déploiement en production](#-déploiement-en-production)
-- [Documentation API](#-documentation-api)
-- [Schéma de base de données](#-schéma-de-base-de-données)
-- [Structure du projet](#-structure-du-projet)
+**Backend**
+- Java 21
+- Spring Boot 3.2
+- Spring Data JPA
+- PostgreSQL 16
+- Maven
+- JUnit 5 + JaCoCo
 
----
+**Frontend**
+- Angular 18 (composants standalone, signals)
+- TypeScript 5
+- Jest + ts-jest
 
-## 🛠 Stack technique
+**Infrastructure**
+- Docker / Docker Compose
+- Nginx (reverse proxy frontend)
+- GitHub Actions (CI/CD)
+- Docker Hub (registry)
 
-| Couche           | Technologie                                        |
-|------------------|----------------------------------------------------|
-| Frontend         | Angular 18 (standalone components + signals)       |
-| UI               | Angular Material + Angular CDK (drag & drop)       |
-| Backend          | Java 21 + Spring Boot 3.3 (Web, Data JPA, Validation) |
-| Base de données  | PostgreSQL 16 (H2 en dev/tests)                    |
-| Build            | Maven 3.9 (back) / npm (front)                     |
-| Tests backend    | JUnit 5 + Mockito + AssertJ + Jacoco               |
-| Tests frontend   | Jest + `@angular-builders/jest`                    |
-| Conteneurisation | Docker + Docker Compose                            |
-| CI/CD            | GitHub Actions → Docker Hub                        |
+## Architecture
 
----
+L'application suit une architecture trois tiers classique :
 
-## 🏗️ Architecture
+- **Frontend Angular** servi par Nginx, qui consomme l'API REST exposée par le backend.
+- **Backend Spring Boot** qui expose les endpoints REST et orchestre la logique métier.
+- **Base de données PostgreSQL** persistante, accédée via Spring Data JPA.
+
+Les trois composants sont conteneurisés et orchestrés par Docker Compose.
 
 ```
-┌─────────────────┐      HTTP/JSON      ┌──────────────────┐     JDBC     ┌──────────────┐
-│  Angular 18 SPA │ ───────────────────▶│  Spring Boot API │ ────────────▶│ PostgreSQL 16│
-│   (nginx :80)   │◀─── /api proxy ─────│    (port 8080)   │              │  (port 5432) │
-└─────────────────┘                     └──────────────────┘              └──────────────┘
+┌─────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│  Frontend       │       │  Backend         │       │  PostgreSQL      │
+│  Angular 18     │ ────▶ │  Spring Boot 3.2 │ ────▶ │  16              │
+│  Nginx          │       │  Java 21         │       │                  │
+│  Port 80        │       │  Port 8080       │       │  Port 5432       │
+└─────────────────┘       └──────────────────┘       └──────────────────┘
 ```
 
----
+## Démarrage rapide avec Docker
 
-## ✨ Fonctionnalités
+C'est la méthode la plus rapide pour lancer l'application complète. Aucun outil de développement n'est requis sur la machine, juste Docker.
 
-### Authentification
-- Inscription et connexion par email + mot de passe
-- Hachage BCrypt des mots de passe
-- Session persistée côté client via `localStorage`
+### Prérequis
 
-### Gestion des projets
-- Création de projets (le créateur devient automatiquement `ADMIN`)
-- Liste des projets auxquels l'utilisateur appartient
-- Invitation de membres par email avec un rôle (`ADMIN`, `MEMBER`, `OBSERVER`)
+- Docker Desktop 4.x ou Docker Engine 20.10+
+- Docker Compose v2
 
-### Tableau Kanban
-- Tâches organisées en trois colonnes : **À faire**, **En cours**, **Terminé**
-- Drag & drop pour changer le statut (Angular CDK)
-- Création / édition / suppression avec dialog Material
-- Champs : nom, description, priorité, date limite, assigné
+### Démarrage
 
-### Historique & notifications
-- Historique automatique de toutes les modifications (champ, ancienne/nouvelle valeur, auteur, date)
-- Notifications visuelles lors d'une assignation ou d'une modification
-- Badge de notifications non lues dans la topbar
-
-### Matrice des rôles
-
-| Action                      | ADMIN | MEMBER | OBSERVER |
-|-----------------------------|:-----:|:------:|:--------:|
-| Voir le projet & les tâches |   ✅   |   ✅    |    ✅     |
-| Créer / modifier une tâche  |   ✅   |   ✅    |    ❌     |
-| Supprimer une tâche         |   ✅   |   ✅    |    ❌     |
-| Inviter un membre           |   ✅   |   ❌    |    ❌     |
-
----
-
-## 🚀 Démarrage rapide (Docker)
-
-**Prérequis** : Docker 24+ et Docker Compose v2.
+Depuis la racine du projet :
 
 ```bash
-# Cloner le repo
-git clone https://github.com/Sivva2/pmt.git
-cd pmt
-
-# Lancer la stack complète (DB + backend + frontend)
-docker compose up -d --build
-```
-
-Une fois les healthchecks passés :
-
-- Frontend : <http://localhost:4200>
-- Backend API : <http://localhost:8080/api>
-- PostgreSQL : `localhost:5432` (user `pmt` / password `pmt`)
-
-**Comptes de test** (chargés via `docs/schema.sql`, mot de passe `password`) :
-
-| Email              | Rôle par défaut                          |
-|--------------------|------------------------------------------|
-| alice@pmt.com      | ADMIN du projet « Refonte site web »     |
-| bob@pmt.com        | ADMIN du projet « Application mobile »   |
-| charlie@pmt.com    | OBSERVER du projet « Refonte site web »  |
-
-> ℹ️ Les données de test sont injectées automatiquement au premier démarrage de PostgreSQL via le volume `docker-entrypoint-initdb.d`. Pour repartir de zéro : `docker compose down -v && docker compose up -d --build`.
-
----
-
-## 💻 Développement local
-
-### Backend (sans Docker)
-
-```bash
-cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-Profil `dev` → H2 en mémoire, console H2 accessible sur <http://localhost:8080/h2-console>.
-
-### Frontend (sans Docker)
-
-```bash
-cd frontend
-npm install
-npm start
-```
-
-Accessible sur <http://localhost:4200>. Par défaut, l'URL de l'API est `http://localhost:8080/api`.
-
----
-
-## 🧪 Tests & Couverture
-
-### Backend — JUnit + Jacoco
-
-```bash
-cd backend
-./mvnw verify
-```
-
-Le rapport est généré dans `backend/target/site/jacoco/index.html`. Le seuil de **60% (instructions et branches)** est bloquant : la build échoue en dessous.
-
-### Frontend — Jest
-
-```bash
-cd frontend
-npm run test:coverage
-```
-
-Le rapport HTML est généré dans `frontend/coverage/lcov-report/index.html`. Seuils Jest : **60%** sur lignes, branches, fonctions et statements.
-
-### Tests d'intégration
-
-Un test end-to-end (`ApiIntegrationTest`) monte un contexte Spring complet avec H2 et valide le parcours : `register → login → create project → invite member → list members`.
-
----
-
-## 🔄 Pipeline CI/CD
-
-La pipeline GitHub Actions (`.github/workflows/ci.yml`) se déclenche sur chaque `push` et `pull_request` vers `main`/`develop`.
-
-**Trois jobs séquentiels :**
-
-1. **`backend-test`** — `mvn verify` avec Jacoco, publie le rapport de couverture et le JAR.
-2. **`frontend-test`** — `npm ci` + `npm run test:ci` + `npm run build`, publie le coverage Jest et le bundle de prod.
-3. **`docker-publish`** — déclenché uniquement sur push `main` : build et push des images Docker `pmt-backend` et `pmt-frontend` sur Docker Hub.
-
-### Secrets GitHub requis
-
-Dans **Settings → Secrets and variables → Actions** :
-
-| Secret               | Description                                    |
-|----------------------|------------------------------------------------|
-| `DOCKERHUB_USERNAME` | Nom d'utilisateur Docker Hub                   |
-| `DOCKERHUB_TOKEN`    | Access Token Docker Hub (pas le mot de passe)  |
-
----
-
-## 🚢 Déploiement en production
-
-### Option 1 — Pull des images depuis Docker Hub
-
-```bash
-# 1. Créer un fichier .env
-cat > .env <<EOF
-DOCKERHUB_USER=sivva2
-TAG=latest
-EOF
-
-# 2. Récupérer les dernières images et lancer
-docker compose pull
 docker compose up -d
 ```
 
-### Option 2 — Déploiement sur un VPS (exemple OVH)
+Trois conteneurs démarrent :
+- `pmt-postgres` (base de données)
+- `pmt-backend` (API Spring Boot)
+- `pmt-frontend` (interface Angular servie par Nginx)
+
+L'application est accessible sur :
+- **Frontend** : http://localhost
+- **Backend (API)** : http://localhost:8080/api
+- **Base de données** : localhost:5432 (utilisateur `pmt`, mot de passe `pmt`)
+
+### Arrêt
 
 ```bash
-# Connexion
-ssh user@vps.example.com
-
-# Prérequis : installer Docker Engine + Docker Compose
-curl -fsSL https://get.docker.com | sh
-
-# Cloner le repo et lancer
-git clone https://github.com/Sivva2/pmt.git
-cd pmt
-docker compose up -d
+docker compose down
 ```
 
-Pour exposer en HTTPS, placer un reverse proxy (nginx / Traefik / Caddy) devant le service `frontend` (port `4200`) avec un certificat Let's Encrypt.
-
-### Commandes utiles
+Pour aussi supprimer les données de la base :
 
 ```bash
-# Voir les logs
-docker compose logs -f backend
-docker compose logs -f frontend
-
-# Redémarrer un service
-docker compose restart backend
-
-# Mettre à jour avec les dernières images
-docker compose pull && docker compose up -d
-
-# Sauvegarder la base de données
-docker compose exec db pg_dump -U pmt pmt > backup-$(date +%F).sql
-
-# Tout arrêter et supprimer les données
 docker compose down -v
 ```
 
----
+## Installation pour le développement
 
-## 📖 Documentation API
+### Backend
 
-L'authentification se fait sans Spring Security (pas de JWT). Après `login`/`register`, le frontend stocke l'ID utilisateur et l'envoie dans le header **`X-User-Id`** à chaque requête protégée (injection par l'`authInterceptor` Angular).
-
-### Endpoints
-
-| Méthode | Endpoint                             | Description                        | Header requis |
-|---------|--------------------------------------|------------------------------------|:-------------:|
-| POST    | `/api/auth/register`                 | Créer un compte                    |       ❌       |
-| POST    | `/api/auth/login`                    | Se connecter                       |       ❌       |
-| GET     | `/api/projects`                      | Liste mes projets                  |       ✅       |
-| POST    | `/api/projects`                      | Créer un projet                    |       ✅       |
-| GET     | `/api/projects/{id}`                 | Détail d'un projet                 |       ✅       |
-| GET     | `/api/projects/{id}/members`         | Liste des membres                  |       ✅       |
-| POST    | `/api/projects/{id}/members`         | Inviter un membre (ADMIN)          |       ✅       |
-| GET     | `/api/projects/{projectId}/tasks`    | Tâches d'un projet                 |       ✅       |
-| POST    | `/api/projects/{projectId}/tasks`    | Créer une tâche (MEMBER+)          |       ✅       |
-| PUT     | `/api/tasks/{id}`                    | Modifier une tâche (MEMBER+)       |       ✅       |
-| DELETE  | `/api/tasks/{id}`                    | Supprimer une tâche (MEMBER+)      |       ✅       |
-| GET     | `/api/tasks/{id}/history`            | Historique d'une tâche             |       ✅       |
-| GET     | `/api/notifications`                 | Mes notifications                  |       ✅       |
-| GET     | `/api/notifications/unread-count`    | Nombre de notifications non lues   |       ✅       |
-| PUT     | `/api/notifications/{id}/read`       | Marquer comme lue                  |       ✅       |
-
-### Exemples cURL
+Prérequis : JDK 21 et Maven 3.9+
 
 ```bash
-# Inscription
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"dave","email":"dave@pmt.com","password":"password"}'
-
-# Création d'un projet (userId=1)
-curl -X POST http://localhost:8080/api/projects \
-  -H "Content-Type: application/json" \
-  -H "X-User-Id: 1" \
-  -d '{"name":"Mon projet","description":"Description"}'
-
-# Liste des tâches d'un projet
-curl http://localhost:8080/api/projects/1/tasks -H "X-User-Id: 1"
+cd backend
+mvn clean install
+mvn spring-boot:run
 ```
 
----
+Le backend démarre sur http://localhost:8080.
 
-## 🗄 Schéma de base de données
+Pour la base de données en local, lance juste le conteneur Postgres :
 
-Voir [`docs/database-schema.md`](docs/database-schema.md) pour le diagramme Mermaid complet et la documentation des formes normales.
+```bash
+docker compose up -d postgres
+```
 
-Le script DDL+DML est disponible dans [`docs/schema.sql`](docs/schema.sql).
+### Frontend
 
-**Entités** : `users`, `projects`, `project_members`, `tasks`, `task_history`, `notifications`.
+Prérequis : Node.js 20+ et npm 10+
 
----
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npm start
+```
 
-## 📁 Structure du projet
+Le frontend est accessible sur http://localhost:4200 et proxifie automatiquement les appels API vers le backend.
+
+## Tests et couverture
+
+### Backend
+
+```bash
+cd backend
+mvn verify
+```
+
+Cette commande exécute tous les tests unitaires et d'intégration, puis génère le rapport de couverture JaCoCo dans `backend/target/site/jacoco/index.html`.
+
+**Résultats actuels** : 36 tests, couverture supérieure à 60% sur les instructions et les branches (critère du bloc RNCP).
+
+### Frontend
+
+```bash
+cd frontend
+npm test
+```
+
+Pour la couverture :
+
+```bash
+npm test -- --coverage
+```
+
+Le rapport est généré dans `frontend/coverage/lcov-report/index.html`.
+
+**Résultats actuels** : 18 tests, **couverture supérieure à 98%** sur les services métiers.
+
+## Pipeline CI/CD
+
+Le projet utilise GitHub Actions. Le fichier de configuration est `.github/workflows/ci.yml`.
+
+Trois jobs s'enchaînent automatiquement à chaque push sur `main` :
+
+1. **Backend — Build & Test** : compile le projet Maven, exécute les tests JUnit, génère le rapport JaCoCo, archive le JAR.
+2. **Frontend — Build & Test** : installe les dépendances npm, exécute les tests Jest avec couverture, build le bundle de production Angular.
+3. **Docker — Build & Push to Docker Hub** : build les images backend et frontend, les tag (`latest` + SHA du commit), et les push sur Docker Hub.
+
+Sur les pull requests, seuls les deux premiers jobs s'exécutent (pas de push d'image).
+
+### Secrets requis
+
+Les secrets suivants doivent être configurés dans Settings → Secrets and variables → Actions :
+
+- `DOCKERHUB_USERNAME` : identifiant Docker Hub
+- `DOCKERHUB_TOKEN` : token d'accès personnel Docker Hub
+
+## Images Docker Hub
+
+Les images sont publiées automatiquement à chaque commit sur `main`.
+
+- Backend : `sivva2/pmt-backend:latest`
+- Frontend : `sivva2/pmt-frontend:latest`
+
+Pour récupérer et lancer la dernière version sans cloner le repo :
+
+```bash
+docker pull sivva2/pmt-backend:latest
+docker pull sivva2/pmt-frontend:latest
+```
+
+## Structure du projet
 
 ```
 pmt/
-├── backend/                        # Spring Boot 3.3 + Java 21
-│   ├── src/main/java/.../pmt/
-│   │   ├── config/                 # CORS
-│   │   ├── controller/             # REST controllers
-│   │   ├── dto/                    # Records Java 21
-│   │   ├── entity/                 # Entités JPA + enums
-│   │   ├── exception/              # Exceptions + GlobalExceptionHandler
-│   │   ├── repository/             # Spring Data JPA
-│   │   └── service/                # Logique métier + RBAC
-│   ├── src/main/resources/
-│   │   └── application.yml         # Profils dev / prod / test
-│   ├── src/test/java/              # Tests unitaires + intégration
-│   ├── Dockerfile                  # Multi-stage Maven → JRE Alpine
-│   └── pom.xml                     # Jacoco seuil 60%
-│
-├── frontend/                       # Angular 18 standalone + signals
-│   ├── src/app/
-│   │   ├── core/
-│   │   │   ├── guards/             # authGuard
-│   │   │   ├── interceptors/       # authInterceptor (X-User-Id)
-│   │   │   ├── models/             # Types TypeScript
-│   │   │   └── services/           # Auth, Project, Task, Notification
-│   │   ├── features/
-│   │   │   ├── auth/               # login + register
-│   │   │   ├── projects/           # list + create + detail
-│   │   │   └── tasks/              # board Kanban + form + history
-│   │   └── shared/components/      # Notification bell
-│   ├── jest.config.js              # Seuils Jest 60%
-│   ├── Dockerfile                  # Multi-stage Node → nginx
-│   └── nginx.conf                  # Proxy /api + SPA routing
-│
+├── .github/
+│   └── workflows/
+│       └── ci.yml                    # Pipeline GitHub Actions
+├── backend/
+│   ├── src/
+│   │   ├── main/                     # Code Spring Boot
+│   │   └── test/                     # Tests JUnit + JaCoCo
+│   ├── Dockerfile
+│   └── pom.xml
+├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── core/                 # Services, guards, interceptors
+│   │   │   └── features/             # Composants Angular standalone
+│   │   └── __mocks__/                # Mocks pour ts-jest
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── jest.config.js
+│   └── package.json
 ├── docs/
-│   ├── database-schema.md          # MCD + formes normales
-│   └── schema.sql                  # DDL + données de test
-│
-├── .github/workflows/ci.yml        # Pipeline CI/CD complète
-├── docker-compose.yml              # Orchestration DB + back + front
+│   ├── database-schema.md            # Schéma de la base de données
+│   └── schema.sql                    # Script SQL d'initialisation
+├── docker-compose.yml
 └── README.md
 ```
 
----
+## Fonctionnalités
 
-## 📝 Licence
+- Authentification (inscription, connexion, déconnexion) avec mot de passe BCrypt
+- Gestion de projets (création, consultation, listing)
+- Gestion des membres et des rôles (ADMIN, MEMBER, OBSERVER)
+- Tableau de bord des tâches (kanban)
+- Création, modification, suppression et historique des tâches
+- Système de notifications
 
-Projet pédagogique réalisé dans le cadre du **Titre RNCP Niveau 7 – Expert en Ingénierie du Logiciel** (Groupe ESIEA INTECH).
+## Auteur
 
-**Auteur** : Sivva (Kevin Abaskaran) — 2026
+Kevin Abaskaran — Étude de cas PMT — Bloc RNCP Niveau 7 (Visiplus / ESIEA INTECH)
